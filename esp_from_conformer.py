@@ -16,6 +16,7 @@ from openff.toolkit.topology import Molecule
 from openff.recharge.utilities.toolkits import VdWRadiiType, compute_vdw_radii
 from openff.units import unit
 from openff.utilities import temporary_cd
+from point_charge_esp import calculate_esp
 
 from molesp.models import ESPMolecule, Surface
 from molesp.gui import launch
@@ -80,12 +81,64 @@ class ESPProcessor:
 
     def __init__(self, 
                 prop_store_path: str,
-                port: int = 8000) -> None:
+                molecule: str,
+                conformer: int,
+                port: int = 8000,
+                grid: unit.Quantity | None =  None,
+                qmesp: unit.Quantity | None = None,
+                vertices: np.ndarray | None = None,
+                indices: np.ndarray | None = None) -> None:
         self._port = port
         self._prop_store = MoleculePropStore(prop_store_path)
         self.esp_settings = ESPSettings(
             basis="6-31G*", method="hf", grid_settings=MSKGridSettings()
         )
+        self.conformer = self._get_conformer(molecule, conformer)  
+        self.openff_molecule = Molecule.from_mapped_smiles(self.conformer.tagged_smiles)
+        self.grid = grid
+        self.qmesp = qmesp
+        self.vertices = vertices
+        self.indices = indices
+        self.esp_molecule = None
+
+    @property
+    def grid(self):
+        return self._grid 
+    
+    @grid.setter
+    def grid(self, value: unit.Quantity) -> None:
+        if value is None:
+            self._grid = None
+        else:
+            self._grid = value
+    
+    @property
+    def qmesp(self):
+        return self._qmesp
+    
+    @qmesp.setter
+    def qmesp(self, value: unit.Quantity) -> None:
+        if value is None:
+            self._qmesp = None
+        else:
+            self._qmesp = value
+
+    @property
+    def vertices(self):
+        return self._vertices
+    
+    @vertices.setter
+    def vertices(self, value: np.ndarray | None) -> None:
+        self._vertices = value
+
+    @property
+    def indices(self):
+        return self._indices
+    
+    @indices.setter
+    def indices(self, value: np.ndarray | None) -> None:
+        self._indices = value
+
         
     def _get_conformer(self, 
                        molecule: str,
@@ -107,25 +160,21 @@ class ESPProcessor:
         molecule_props = self._prop_store.retrieve(molecule)[conformer]
         return molecule_props
 
-    def _compute_vdw_radii(self, 
-                           openff_molecule: Molecule) -> np.ndarray:
+    def _compute_vdw_radii(self) -> np.ndarray:
         """
             compute the VdW radii  
         Parameters
         ----------
-        openff_molecule
-            openff molecule from tagged smiles in db
+   
         Returns
         -------
            Returns VdW radii array.
         """
-        vdw_radii = compute_vdw_radii(openff_molecule, radii_type=VdWRadiiType.Bondi) 
+        vdw_radii = compute_vdw_radii(self.openff_molecule, radii_type=VdWRadiiType.Bondi) 
         radii = np.array([[r] for r in vdw_radii.m_as(unit.angstrom)]) * unit.angstrom
         return radii
 
     def _compute_surface(self, 
-                         openff_molecule: Molecule, 
-                         molecule_props: list[MoleculePropRecord], 
                          radii: np.ndarray) -> tuple[np.ndarray,np.ndarray]:
         """"
             Compute the surface to project the ESP on
@@ -143,19 +192,15 @@ class ESPProcessor:
         """
 
         vertices, indices = compute_surface(
-            molecule=openff_molecule,
-            conformer=molecule_props.conformer_quantity,
+            molecule=self.openff_molecule,
+            conformer=self.conformer.conformer_quantity,
             radii=radii,
             radii_scale=1.4,
             spacing=0.2 * unit.angstrom,
         )
         return vertices, indices
 
-    def _generate_esp(self, 
-                      openff_molecule: Molecule,
-                      molecule_props: list[MoleculePropRecord],
-                      esp_settings: ESPSettings,
-                      vertices: np.ndarray) -> tuple[unit.Quantity, unit.Quantity]:
+    def _generate_esp(self) -> tuple[unit.Quantity, unit.Quantity]:
         """
            generate the esp using Psi4ESPGenerator 
         Parameters
@@ -175,25 +220,21 @@ class ESPProcessor:
 
         with temporary_cd():
             _, esp, _  = Psi4ESPGenerator._generate(
-                openff_molecule,
-                molecule_props.conformer_quantity,
-                vertices * unit.angstrom,
-                esp_settings,
+                self.openff_molecule,
+                self.conformer.conformer_quantity,
+                self.vertices * unit.angstrom,
+                self.esp_settings,
                 "",
                 minimize=False,
                 compute_esp=True,
                 compute_field=False,
             )
         
-        grid = vertices * unit.angstrom
+        self.grid = self.vertices * unit.angstrom
 
-        return esp, grid
+        return esp, self.grid
 
     def _create_esp_molecule(self, 
-                             openff_molecule: Molecule, 
-                             molecule_props: list[MoleculePropRecord], 
-                             vertices: np.ndarray, 
-                             indices: np.ndarray, 
                              esp: unit.Quantity) -> ESPMolecule:
         """
         creates an ESPMolecule class containing all the visualisation information
@@ -214,36 +255,82 @@ class ESPProcessor:
             ESP molecule object
         """
         esp_molecule = ESPMolecule(
-            atomic_numbers=[atom.atomic_number for atom in openff_molecule.atoms],
-            conformer=molecule_props.conformer.flatten().tolist(),
+            atomic_numbers=[atom.atomic_number for atom in self.openff_molecule.atoms],
+            conformer=self.conformer.conformer.flatten().tolist(),
             surface=Surface(
-                vertices=vertices.flatten().tolist(),
-                indices=indices.flatten().tolist(),
+                vertices=self.vertices.flatten().tolist(),
+                indices=self.indices.flatten().tolist(),
             ),
-            esp={"QC ESP": esp.m_as(unit.hartree / unit.e).flatten().tolist()},
+            esp={"QC ESP": np.round(esp,7).m_as(unit.hartree / unit.e).flatten().tolist()},
         )
         return esp_molecule
 
-    def process_and_launch_qm_esp(self,
-                           molecule: str,
-                           conformer: int) -> None:
-        conf = self._get_conformer(molecule, conformer)
-        openff_molecule = Molecule.from_mapped_smiles(conf.tagged_smiles)
+    def process_and_launch_qm_esp(self) -> None:
+        """
+        Produce QM ESP using the supplied ESPSettings, Molecule, Conformer
+        Paramters
+        ---------
+        molecule 
+        """
 
-        radii = self._compute_vdw_radii(openff_molecule)
+        radii = self._compute_vdw_radii()
 
-        vertices, indices = self._compute_surface(openff_molecule, conf, radii)
+        vertices, indices = self._compute_surface(radii)
 
-        esp, grid = self._generate_esp(openff_molecule, conf, self.esp_settings, vertices)
+        self.vertices = vertices
+        self.indices = indices
 
-        esp_molecule = self._create_esp_molecule(
-            openff_molecule, conf, vertices, indices, esp
-        )
+        esp, grid = self._generate_esp()
 
-        launch(esp_molecule, port=self._port)
+        self.qmesp = esp
+        self.grid = grid
 
-        return esp, grid, esp_molecule
+        #create esp molecule object for visualization
+        esp_molecule = self._create_esp_molecule(esp)
+        self.esp_molecule = esp_molecule
+        
+        launch(esp_molecule, port = self._port)
+
+        return esp, grid, self.esp_molecule
     
+    def add_on_atom_esp(self,
+                        on_atom_charges: list[unit.Quantity],
+                        labels: list[str]) -> tuple[unit.Quantity, ESPMolecule]:
+        
+        for charge_list, label in zip(on_atom_charges, labels):
+            on_atom_esp = self._generate_on_atom_esp(charge_list)
+            #ensure the on atom esp is at 7dp as visualisation crashes otherwise
+            self.esp_molecule.esp[label] = np.round(on_atom_esp,7).m_as(unit.hartree / unit.e).flatten().tolist()
+        
+        launch(self.esp_molecule, port = self._port + 100)
+
+        return self.esp_molecule
+        
+    def _generate_on_atom_esp(self,
+                              on_atom_charges: list[float]) -> unit.Quantity:
+        """"
+        takes in a list of on atom charges and produces an ESP for them
+        Parameters
+        ----------
+        on_atom_charges
+            list of on atom charges
+        Returns
+        -------
+        on_atom_esp
+            on atom esp formed from the conformer and on atom chargers
+        """
+        
+        on_atom_esp =  calculate_esp(self.grid,
+                             self.conformer.conformer_quantity,
+                             on_atom_charges,
+                             with_units= True)
+
+        on_atom_esp.to(unit.hartree/unit.e)
+        on_atom_esp = on_atom_esp.magnitude.reshape(-1, 1)
+        on_atom_esp = on_atom_esp * unit.hartree/unit.e
+
+        return on_atom_esp
+
     def on_atom_esp(self,
                     esp: unit.Quantity,
                     molecule: str,
