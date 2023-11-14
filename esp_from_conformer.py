@@ -87,7 +87,6 @@ class ESPProcessor:
             basis="6-31G*", method="hf", grid_settings=MSKGridSettings()
         )
         
-
     def _get_conformer(self, 
                        molecule: str,
                        conformer: int) -> list[MoleculePropRecord]:
@@ -243,7 +242,7 @@ class ESPProcessor:
 
         launch(esp_molecule, port=self._port)
 
-        return esp, grid
+        return esp, grid, esp_molecule
     
     def on_atom_esp(self,
                     esp: unit.Quantity,
@@ -257,8 +256,12 @@ class ESPProcessor:
 
         vertices, indices = self._compute_surface(openff_molecule, conf, radii)
         
-        esp_molecule = self._create_esp_molecule(
+        esp_molecule2 = self._create_esp_molecule(
             openff_molecule, conf, vertices, indices, esp
         )
 
-        launch(esp_molecule, port=self._port)
+        launch(esp_molecule2, port=self._port)
+
+        return esp, esp_molecule2
+
+        
