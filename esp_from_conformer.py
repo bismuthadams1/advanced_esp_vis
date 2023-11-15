@@ -230,9 +230,9 @@ class ESPProcessor:
                 compute_field=False,
             )
         
-        self.grid = self.vertices * unit.angstrom
+        grid = self.vertices * unit.angstrom
 
-        return esp, self.grid
+        return esp, grid
 
     def _create_esp_molecule(self, 
                              esp: unit.Quantity) -> ESPMolecule:
@@ -300,9 +300,10 @@ class ESPProcessor:
         for charge_list, label in zip(on_atom_charges, labels):
             on_atom_esp = self._generate_on_atom_esp(charge_list)
             #ensure the on atom esp is at 7dp as visualisation crashes otherwise
-            self.esp_molecule.esp[label] = np.round(on_atom_esp,7).m_as(unit.hartree / unit.e).flatten().tolist()
+            self.esp_molecule.esp[label] = np.round(on_atom_esp,6).m_as(unit.hartree / unit.e).flatten().tolist()
         
-        launch(self.esp_molecule, port = self._port + 100)
+        esp_mol = self.esp_molecule
+        launch(esp_mol, port = self._port)
 
         return self.esp_molecule
         
@@ -319,13 +320,12 @@ class ESPProcessor:
         on_atom_esp
             on atom esp formed from the conformer and on atom chargers
         """
-        
+              
         on_atom_esp =  calculate_esp(self.grid,
                              self.conformer.conformer_quantity,
                              on_atom_charges,
-                             with_units= True)
+                             with_units= True).to(unit.hartree/unit.e)
 
-        on_atom_esp.to(unit.hartree/unit.e)
         on_atom_esp = on_atom_esp.magnitude.reshape(-1, 1)
         on_atom_esp = on_atom_esp * unit.hartree/unit.e
 

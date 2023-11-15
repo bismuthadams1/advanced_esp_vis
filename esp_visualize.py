@@ -64,7 +64,7 @@ qm_esp.add_on_atom_esp(partial_charges,['mmff94'])
 # am1_esp = ESPProcessor(prop_store_path = '/Users/localadmin/Documents/projects/QM_ESP_Psi4/examples/prop_test_2.db', port = 8100)
 # esp, esp_molecule2 = am1_esp.on_atom_esp(esp = am1_esp_quantity, molecule = MOLECULE_STR, conformer = CONFORMER)
 
-# esp_molecule.esp['mmff94'] = np.round(esp,7).m_as(unit.hartree / unit.e).flatten().tolist()
+# esp_molecule.esp['mmff94'] = np.round(am1_esp_quantity,7).m_as(unit.hartree / unit.e).flatten().tolist()
 # esp_molecule
 
 # launch(esp_molecule, port=8100)
