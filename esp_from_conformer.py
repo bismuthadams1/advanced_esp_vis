@@ -4,7 +4,6 @@ import os
 import numpy as np
 import asyncio
 
-
 sys.path.append('/Users/localadmin/Documents/projects/QM_ESP_Psi4')
 
 from source.storage.storage import MoleculePropRecord, MoleculePropStore
@@ -21,61 +20,6 @@ from point_charge_esp import calculate_esp
 from molesp.models import ESPMolecule, Surface
 from molesp.gui import launch
 from molesp.cli._cli import compute_surface
-
-PORT = 8000
-"""
-prop_store = MoleculePropStore("/Users/localadmin/Documents/projects/QM_ESP_Psi4/examples/prop_test_2.db")
-
-smiles_list = prop_store.list()
-
-test_mol = prop_store.retrieve(smiles_list[5])[0]
-tagged_smiles = test_mol.tagged_smiles
-openff_molecule = Molecule.from_mapped_smiles(tagged_smiles)
-test_mol.conformer_quantity
-
-vdw_radii = compute_vdw_radii(openff_molecule, radii_type=VdWRadiiType.Bondi)
-
-radii = (
-            np.array([[radii] for radii in vdw_radii.m_as(unit.angstrom)])
-            * unit.angstrom
-        )
-
-vertices, indices = compute_surface(molecule = openff_molecule,
-                                    conformer = test_mol.conformer_quantity, 
-                                    radii = radii,
-                                    radii_scale = 1.4,
-                                    spacing = 0.2 * unit.angstrom )
-
-
-esp_settings = ESPSettings(
-            basis="6-31G*", method="hf", grid_settings=MSKGridSettings()
-        )
-
-with temporary_cd():
-
-    _, esp, _ = Psi4ESPGenerator._generate(
-        openff_molecule,
-        test_mol.conformer_quantity,
-        vertices * unit.angstrom,
-        esp_settings,
-        "",
-        minimize=False,
-        compute_esp=True,
-        compute_field=False,
-    )
-
-esp_molecule =  ESPMolecule(
-    atomic_numbers = [atom.atomic_number for atom in openff_molecule.atoms],
-    conformer = test_mol.conformer.flatten().tolist(),
-    surface = Surface(
-            vertices=vertices.flatten().tolist(), indices=indices.flatten().tolist()
-        ),
-        esp={"QC ESP": esp.m_as(unit.hartree / unit.e).flatten().tolist()},
-    )
-
-
-launch(esp_molecule, port=PORT)
-"""
 
 class ESPProcessor:
 
@@ -323,32 +267,10 @@ class ESPProcessor:
               
         on_atom_esp =  calculate_esp(self.grid,
                              self.conformer.conformer_quantity,
-                             on_atom_charges,
+                             on_atom_charges * unit.e,
                              with_units= True).to(unit.hartree/unit.e)
 
         on_atom_esp = on_atom_esp.magnitude.reshape(-1, 1)
         on_atom_esp = on_atom_esp * unit.hartree/unit.e
 
         return on_atom_esp
-
-    def on_atom_esp(self,
-                    esp: unit.Quantity,
-                    molecule: str,
-                    conformer: int) -> None:
-        
-        conf = self._get_conformer(molecule, conformer)
-        openff_molecule = Molecule.from_mapped_smiles(conf.tagged_smiles)
-
-        radii = self._compute_vdw_radii(openff_molecule)
-
-        vertices, indices = self._compute_surface(openff_molecule, conf, radii)
-        
-        esp_molecule2 = self._create_esp_molecule(
-            openff_molecule, conf, vertices, indices, esp
-        )
-
-        launch(esp_molecule2, port=self._port)
-
-        return esp, esp_molecule2
-
-        
