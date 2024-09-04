@@ -4,6 +4,7 @@ import os
 import numpy as np
 import asyncio
 from chargecraft.storage.storage import MoleculePropRecord, MoleculePropStore
+from utility_functions import calculate_rinnicker_esp
 
 from openff.recharge.esp import ESPSettings
 from openff.recharge.grids import MSKGridSettings
@@ -34,7 +35,9 @@ class ESPProcessor:
         self.esp_settings = ESPSettings(
             basis="6-31G*", method="hf", grid_settings=MSKGridSettings()
         )
-        self.conformer = self._get_conformer(molecule, conformer)  
+        self.molecule = molecule
+        self.conformer_number = conformer
+        self.conformer = self._get_conformer(molecule, self.conformer_number)  
         self.openff_molecule = Molecule.from_mapped_smiles(self.conformer.tagged_smiles)
         self.grid = grid
         self.qmesp = qmesp
@@ -291,3 +294,22 @@ class ESPProcessor:
         on_atom_esp = on_atom_esp * unit.hartree/unit.e
 
         return on_atom_esp
+
+    def riniker_esp(self,):
+    
+        esp = calculate_rinnicker_esp(smiles=self.molecule,
+                                conformer_no=self.conformer_number,
+                                database=self._prop_store)
+        # esp_molecule = ESPMolecule(
+        #     atomic_numbers=[atom.atomic_number for atom in self.openff_molecule.atoms],
+        #     conformer=self.conformer.conformer.flatten().tolist(),
+        #     surface=Surface(
+        #         vertices=self.vertices.flatten().tolist(),
+        #         indices=self.indices.flatten().tolist(),
+        #     ),
+        #     esp={"QC ESP": np.round(esp,7).m_as(unit.hartree / unit.e).flatten().tolist()},
+        # )
+        self.esp_molecule.esp['riniker'] = np.round(esp,6).m_as(unit.hartree / unit.e).flatten().tolist()
+        # return esp_molecule
+        esp_mol = self.esp_molecule
+        launch(esp_mol, port = self._port)

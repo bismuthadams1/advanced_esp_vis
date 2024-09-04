@@ -82,7 +82,7 @@ try:
 except ValueError:
     qm_esp.add_on_atom_esp(charges_list=charges[-2],charge_sites=conformer.conformer_quantity,label='qubekit charges')
 
-
+qm_esp.riniker_esp()
 
 
 
