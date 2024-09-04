@@ -3,10 +3,7 @@ import sys
 import os 
 import numpy as np
 import asyncio
-
-sys.path.append('/Users/localadmin/Documents/projects/QM_ESP_Psi4')
-
-from source.storage.storage import MoleculePropRecord, MoleculePropStore
+from chargecraft.storage.storage import MoleculePropRecord, MoleculePropStore
 
 from openff.recharge.esp import ESPSettings
 from openff.recharge.grids import MSKGridSettings
@@ -172,6 +169,7 @@ class ESPProcessor:
                 minimize=False,
                 compute_esp=True,
                 compute_field=False,
+                n_threads=1,
             )
         
         grid = self.vertices * unit.angstrom
@@ -237,12 +235,12 @@ class ESPProcessor:
 
         return esp, grid, self.esp_molecule
     
-    def add_on_atom_esp(self,
-                        on_atom_charges: list[unit.Quantity],
-                        labels: list[str]) -> tuple[unit.Quantity, ESPMolecule]:
+    def add_on_atom_esps(self,
+                         on_atom_charges: list[unit.Quantity],
+                         labels: list[str]) -> tuple[unit.Quantity, ESPMolecule]:
         
         for charge_list, label in zip(on_atom_charges, labels):
-            on_atom_esp = self._generate_on_atom_esp(charge_list)
+            on_atom_esp = self._generate_on_atom_esp(charge_list = charge_list)
             #ensure the on atom esp is at 7dp as visualisation crashes otherwise
             self.esp_molecule.esp[label] = np.round(on_atom_esp,6).m_as(unit.hartree / unit.e).flatten().tolist()
         
@@ -250,9 +248,26 @@ class ESPProcessor:
         launch(esp_mol, port = self._port)
 
         return self.esp_molecule
+    
+    def add_on_atom_esp(self,
+                        charge_sites: unit.Quantity,
+                        charges_list: unit.Quantity,
+                        label: list[str]) -> tuple[unit.Quantity, ESPMolecule]:
+        
+        
+        on_atom_esp = self._generate_on_atom_esp(charge_list=charges_list, charge_sites=charge_sites)
+        #ensure the on atom esp is at 7dp as visualisation crashes otherwise
+        self.esp_molecule.esp[label] = np.round(on_atom_esp,6).m_as(unit.hartree / unit.e).flatten().tolist()
+    
+        esp_mol = self.esp_molecule
+        launch(esp_mol, port = self._port)
+
+        return self.esp_molecule
+        
         
     def _generate_on_atom_esp(self,
-                              on_atom_charges: list[float]) -> unit.Quantity:
+                              charge_list: list[float],
+                              charge_sites: np.ndarray | None = None) -> unit.Quantity:
         """"
         takes in a list of on atom charges and produces an ESP for them
         Parameters
@@ -264,10 +279,12 @@ class ESPProcessor:
         on_atom_esp
             on atom esp formed from the conformer and on atom chargers
         """
+        if charge_sites is None :
+            charge_sites = self.conformer.conformer_quantity 
               
         on_atom_esp =  calculate_esp(self.grid,
-                             self.conformer.conformer_quantity,
-                             on_atom_charges * unit.e,
+                             charge_sites,
+                             charge_list * unit.e,
                              with_units= True).to(unit.hartree/unit.e)
 
         on_atom_esp = on_atom_esp.magnitude.reshape(-1, 1)
