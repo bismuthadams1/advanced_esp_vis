@@ -431,25 +431,47 @@ def calculate_total_esp(monopoles: np.ndarray,
 
 def calculate_rinnicker_esp(smiles: str, 
                 conformer_no: int,
-                database: MoleculePropStore):
+                database: MoleculePropStore,
+                grid_coords: Optional[np.ndarray] = None):
     
-    grid_coords = database.retrieve(smiles)[conformer_no].grid_coordinates_quantity 
+    # grid_coords = database.retrieve(smiles)[conformer_no].grid_coordinates_quantity 
+    print('building esp for')
+    print(grid_coords)
     coords = database.retrieve(smiles)[conformer_no].conformer_quantity 
-    openff_mol = Molecule.from_smiles(smiles=smiles, allow_undefined_stereo=True)
+    mapped_smiles = database.retrieve(smiles)[conformer_no].tagged_smiles
+    # print(coords)
+    openff_mol = Molecule.from_mapped_smiles(mapped_smiles=mapped_smiles, allow_undefined_stereo=True)
     openff_mol.add_conformer(coordinates=coords)
+    print('coords')
+    print(coords)
     rdkit_mol = openff_mol.to_rdkit()
     mol_block = Chem.rdmolfiles.MolToMolBlock(rdkit_mol)
-    esp_req =  handle_esp_request(charge_model = "RIN",
-                       conformer_mol = mol_block,
-                       broken_up = True)
+    rdkit_conf = rdkit_mol.GetConformer()
+    for atom_idx in range(rdkit_mol.GetNumAtoms()):
+        pos = rdkit_conf.GetAtomPosition(atom_idx)
+        print(f"Atom {atom_idx}: {pos.x}, {pos.y}, {pos.z}")
+    esp_req =  handle_esp_request(
+        charge_model = "RIN",
+        conformer_mol = mol_block,
+        broken_up = True,
+        grid = grid_coords
+    )
     # print(esp_req)
     monopoles, dipoles, quadropoles = esp_req['monopole'], esp_req['dipole'], esp_req['quadropole']
     # monopoles_quantity, dipoles_quantity, quadropoles_quantity = rinnicker_multipoles(smiles=smiles,
     #                                                                     conformer_no=conformer_no,
     #                                                                     database=database)
+    print(f'grid of shape  used is')
+    print(esp_req['grid'])
+    print(f'grid in database is')
+    print(grid_coords)
+    print('monopoles are')
+    print(json.loads(monopoles))
     esp =  ((json.loads(monopoles) *AU_ESP)
-            + (json.loads(dipoles)* AU_ESP)
+            + (json.loads(dipoles) *AU_ESP)
             + (json.loads(quadropoles) *AU_ESP))
-    print(esp)
+    # print(esp)
+    print('length of esp:')
+    print(len(esp))
     return esp
                                                                 

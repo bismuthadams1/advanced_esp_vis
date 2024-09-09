@@ -5,6 +5,7 @@ import numpy as np
 import asyncio
 from chargecraft.storage.storage import MoleculePropRecord, MoleculePropStore
 from utility_functions import calculate_rinnicker_esp
+import json
 
 from openff.recharge.esp import ESPSettings
 from openff.recharge.grids import MSKGridSettings
@@ -224,6 +225,9 @@ class ESPProcessor:
 
         self.vertices = vertices
         self.indices = indices
+        print('vertices and indices:')
+        print(vertices)
+        print(indices)
 
         esp, grid = self._generate_esp()
 
@@ -244,9 +248,14 @@ class ESPProcessor:
         
         for charge_list, label in zip(on_atom_charges, labels):
             on_atom_esp = self._generate_on_atom_esp(charge_list = charge_list)
+            print('length of on atom esp')
+            print(len(on_atom_esp))
             #ensure the on atom esp is at 7dp as visualisation crashes otherwise
             self.esp_molecule.esp[label] = np.round(on_atom_esp,6).m_as(unit.hartree / unit.e).flatten().tolist()
-        
+            print('charge list of')
+            print(label)
+            print('is')
+            print(charge_list)        
         esp_mol = self.esp_molecule
         launch(esp_mol, port = self._port)
 
@@ -285,21 +294,28 @@ class ESPProcessor:
         if charge_sites is None :
             charge_sites = self.conformer.conformer_quantity 
               
-        on_atom_esp =  calculate_esp(self.grid,
-                             charge_sites,
-                             charge_list * unit.e,
-                             with_units= True).to(unit.hartree/unit.e)
+        on_atom_esp =  calculate_esp(
+            self.grid,
+            charge_sites,
+            charge_list * unit.e,
+            with_units= True
+        ).to(unit.hartree/unit.e)
 
         on_atom_esp = on_atom_esp.magnitude.reshape(-1, 1)
         on_atom_esp = on_atom_esp * unit.hartree/unit.e
-
+        print('the on atom esp is:')
+        print(on_atom_esp)
         return on_atom_esp
 
     def riniker_esp(self,):
-    
+        print('vertices are')
+        print(self.vertices)
         esp = calculate_rinnicker_esp(smiles=self.molecule,
                                 conformer_no=self.conformer_number,
-                                database=self._prop_store)
+                                database=self._prop_store,
+                                grid_coords=self.vertices)
+        print('the riniker atom esp is:')
+        print(esp)
         # esp_molecule = ESPMolecule(
         #     atomic_numbers=[atom.atomic_number for atom in self.openff_molecule.atoms],
         #     conformer=self.conformer.conformer.flatten().tolist(),
@@ -312,4 +328,7 @@ class ESPProcessor:
         self.esp_molecule.esp['riniker'] = np.round(esp,6).m_as(unit.hartree / unit.e).flatten().tolist()
         # return esp_molecule
         esp_mol = self.esp_molecule
+        print('all esps')
+        with open('result.json', 'w') as fp:
+            json.dump(self.esp_molecule.esp, fp)
         launch(esp_mol, port = self._port)
