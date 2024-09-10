@@ -40,7 +40,7 @@ Smiles list in prop store:
  'c1ccsc1']
 """
 #The acetate had the highest RMSEv of all the charges
-MOLECULE_STR = 'CSC'
+MOLECULE_STR = 'CC#N'
 CONFORMER = 0
 #load the prop_store so we can 
 # prop_store = MoleculePropStore("properties_store.db")
@@ -62,7 +62,10 @@ print(charges_names)
 charges = list(partial.values())
 charges_dict = OrderedDict((key, value) for key, value in zip(charges_names,charges))
 off_atom_charges = charges_dict.pop('qubekit-charges')
-off_atom_charge_sites = charges_dict.pop('qubekit-coords-Ang')
+try:
+    off_atom_charge_sites = charges_dict.pop('qubekit-coords-Ang')
+except Exception as e:
+    off_atom_charge_sites = None
 on_atom_charges = list(charges_dict.values())
 on_atom_charge_names = list(charges_dict.keys())
 #add the charge partitioning charges to the list
