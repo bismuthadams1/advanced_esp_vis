@@ -62,11 +62,6 @@ charges_names = list(partial.keys())
 print(charges_names)
 charges = list(partial.values())
 charges_dict = OrderedDict((key, value) for key, value in zip(charges_names,charges))
-# off_atom_charges = charges_dict.pop('qubekit-charges')
-# try:
-#     off_atom_charge_sites = charges_dict.pop('qubekit-coords-Ang')
-# except Exception as e:
-#     off_atom_charge_sites = None
 on_atom_charges = list(charges_dict.values())
 on_atom_charge_names = list(charges_dict.keys())
 #add the charge partitioning charges to the list
@@ -82,11 +77,6 @@ qm_esp = ESPProcessor(prop_store_path = prop_store_path,
 print(on_atom_charges)
 esp, grid, esp_molecule = qm_esp.process_and_launch_qm_esp()
 qm_esp.add_on_atom_esps(on_atom_charges= on_atom_charges, labels = on_atom_charge_names)
-# try:
-#     qm_esp.add_on_atom_esp(charges_list=off_atom_charges,charge_sites=np.array(off_atom_charge_sites).reshape(3,-1)*unit.angstrom,label='qubekit charges')
-# except ValueError:
-#     qm_esp.add_on_atom_esp(charges_list=charges[-2],charge_sites=conformer.conformer_quantity,label='qubekit charges')
-
 qm_esp.riniker_esp()
 
 
