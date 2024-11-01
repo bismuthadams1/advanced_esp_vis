@@ -23,7 +23,7 @@ from openff.units import unit
 from openff.toolkit.topology import Molecule
 from typing import Union, Optional
 from openff.toolkit.utils.nagl_wrapper import NAGLToolkitWrapper
-# from openff.nagl import GNNModel
+from openff.nagl import GNNModel
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -106,16 +106,11 @@ def calculate_rinnicker_esp(smiles: str,
                 database: MoleculePropStore,
                 grid_coords: Optional[np.ndarray] = None):
     
-    # grid_coords = database.retrieve(smiles)[conformer_no].grid_coordinates_quantity 
-    print('building esp for')
-    print(grid_coords)
     coords = database.retrieve(smiles)[conformer_no].conformer_quantity 
     mapped_smiles = database.retrieve(smiles)[conformer_no].tagged_smiles
-    # print(coords)
     openff_mol = Molecule.from_mapped_smiles(mapped_smiles=mapped_smiles, allow_undefined_stereo=True)
     openff_mol.add_conformer(coordinates=coords)
-    print('coords')
-    print(coords)
+
     rdkit_mol = openff_mol.to_rdkit()
     mol_block = Chem.rdmolfiles.MolToMolBlock(rdkit_mol)
     rdkit_conf = rdkit_mol.GetConformer()
@@ -128,22 +123,11 @@ def calculate_rinnicker_esp(smiles: str,
         broken_up = True,
         grid = grid_coords
     )
-    # print(esp_req)
     monopoles, dipoles, quadropoles = esp_req['monopole'], esp_req['dipole'], esp_req['quadropole']
-    # monopoles_quantity, dipoles_quantity, quadropoles_quantity = rinnicker_multipoles(smiles=smiles,
-    #                                                                     conformer_no=conformer_no,
-    #                                                                     database=database)
-    print(f'grid of shape  used is')
-    print(esp_req['grid'])
-    print(f'grid in database is')
-    print(grid_coords)
-    print('monopoles are')
-    print(json.loads(monopoles))
+
     esp =  ((json.loads(monopoles) *AU_ESP)
             + (json.loads(dipoles) *AU_ESP)
             + (json.loads(quadropoles) *AU_ESP))
-    # print(esp)
-    print('length of esp:')
-    print(len(esp))
+
     return esp
                                                                 
