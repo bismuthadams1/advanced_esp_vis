@@ -11,6 +11,8 @@ from openff.recharge.utilities.toolkits import VdWRadiiType, compute_vdw_radii
 from ChargeAPI.API_infrastructure.charge_request import module_version
 import json
 from molesp.gui import launch
+from rdkit.Chem import rdDetermineBonds
+
 
 class ESPFromSDF:
     
@@ -33,26 +35,37 @@ class ESPFromSDF:
         self.vertices = None
         self.indices = None    
         self.openff_molecule = None
+        self.rdkit_molecule = None
 
-    def _sdf_to_openff(self, sdf_file:str) -> Molecule:
+
+    def _sdf_to_openff(self, sdf_file: str) -> Molecule:
         """
-        Convert openff molecule to sdf format
-        
-        Parameters
-        ----------
-        
-        Returns
-        -------
-        
-        
+        Convert RDKit molecule to OpenFF Molecule.
         """
-        openff_molecule = Molecule.from_file(
-            file_path=sdf_file, file_format="sdf")
-        coords = openff_molecule.conformers[0]
-        centroid = np.mean(coords, axis=0)
-        openff_molecule.add_conformer( coords - centroid )
+        # Read the molecule using RDKit
+        supplier = Chem.SDMolSupplier(sdf_file, removeHs=False)
+        rdkit_molecules = [mol for mol in supplier if mol is not None]
+        rdkit_molecule = rdkit_molecules[0]
+        self.rdkit_molecule = rdkit_molecule  # Store RDKit molecule
+        print(f"Number of atoms in RDKit molecule: {rdkit_molecule.GetNumAtoms()}")
+
+        # Convert RDKit molecule to OpenFF Molecule
+        openff_molecule = Molecule.from_rdkit(rdkit_molecule, allow_undefined_stereo=True)
+        print(f"Number of atoms in OpenFF molecule: {openff_molecule.n_atoms}")
+
+        # Get RDKit conformer coordinates
+        rdkit_conf = rdkit_molecule.GetConformer()
+        rdkit_coords = np.array(rdkit_conf.GetPositions()) * unit.angstrom
+
+        # Assign the RDKit coordinates to the OpenFF molecule
+        openff_molecule._conformers = [rdkit_coords]
+
+        # Center the conformer
+        centroid = np.mean(rdkit_coords, axis=0)
+        openff_molecule._conformers[0] = rdkit_coords - centroid
+
         return openff_molecule
-        
+
     def _compute_surface(self, 
                          radii: np.ndarray) -> tuple[np.ndarray,np.ndarray]:
         """"
@@ -108,16 +121,25 @@ class ESPFromSDF:
 
         return on_atom_esp
     
-    def _compute_charge_models(self, openff_molecule: Molecule) -> list[float]:
+    def _compute_charge_models(self, sdf_file: str) -> list[float]:
         """Compute partial charges for openff molecule
         
         """
-        molblock = rdmolfiles.MolToMolBlock(openff_molecule.to_rdkit())
+        supplier = Chem.SDMolSupplier(sdf_file, removeHs=False) #, sanitize=False
+        molecules = [mol for mol in supplier if mol is not None]
+        molecule = molecules[0]
+        # rdDetermineBonds.DetermineConnectivity(molecule)
+        # Chem.SanitizeMol(molecule)
+        molblock = rdmolfiles.MolToMolBlock(molecule)
+        
+        print(f'molblock is {molblock}')
         charge_request = module_version.handle_charge_request(
             conformer_mol=molblock,
-            charge_model='MBIS',
+            charge_model='MBIS_WB_GAS_CHARGE_DIPOLE',
             batched=False
         )
+        print('charge request errors:')
+        print(charge_request['error'])
         charges = json.loads(charge_request['charge_result'])
         
         return charges
@@ -182,9 +204,19 @@ class ESPFromSDF:
             port in which the local host will be launched
         """
         self.openff_molecule = self._sdf_to_openff(sdf_file=sdf_file)
+        # Validate counts
+        charges = self._compute_charge_models(sdf_file=sdf_file)
         
-        charges = self._compute_charge_models(openff_molecule=self.openff_molecule)
-        
+        num_atoms = self.openff_molecule.n_atoms
+        num_charges = len(charges)
+        num_coords = len(self.openff_molecule.conformers[-1])
+
+        print(f"Number of atoms: {num_atoms}")
+        print(f"Number of charges: {num_charges}")
+        print(f"Number of coordinates: {num_coords}")
+
+        assert num_atoms == num_charges == num_coords, "Mismatch in atom counts, charges, or coordinates."
+
         radii = self._compute_vdw_radii()
 
         vertices, indices = self._compute_surface(radii)
