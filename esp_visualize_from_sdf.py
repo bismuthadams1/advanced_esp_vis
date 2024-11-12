@@ -50,7 +50,9 @@ class ESPFromSDF:
         print(f"Number of atoms in RDKit molecule: {rdkit_molecule.GetNumAtoms()}")
 
         # Convert RDKit molecule to OpenFF Molecule
-        openff_molecule = Molecule.from_rdkit(rdkit_molecule, allow_undefined_stereo=True)
+        openff_molecule = Molecule.from_rdkit(rdkit_molecule, allow_undefined_stereo=True, hydrogens_are_explicit=True)
+        # openff_molecule = Molecule.from_file(rdkit_molecule, allow_undefined_stereo=True)
+
         print(f"Number of atoms in OpenFF molecule: {openff_molecule.n_atoms}")
 
         # Get RDKit conformer coordinates
