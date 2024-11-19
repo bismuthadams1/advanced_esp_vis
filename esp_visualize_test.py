@@ -13,6 +13,8 @@ def main():
     # esp_from_sdf.process_and_launch_esp(sdf_file="/Users/localadmin/Documents/molesp_test/structure_8_C23H23ClN4O5S3.sdf")
     # esp_from_sdf.process_and_launch_esp(sdf_file="/Users/localadmin/Documents/molesp_test/Caffeine.sdf")
     # esp_from_sdf.process_and_launch_esp(sdf_file="/Users/localadmin/Documents/molesp_test/Theophylline.sdf")
-    esp_from_sdf.process_and_launch_esp(sdf_file="/Users/localadmin/Documents/molesp_test/ku.a.003.02_ph4.sdf")
+    # esp_from_sdf.process_and_launch_esp(sdf_file="/Users/localadmin/Documents/molesp_test/ku.a.003.02_ph4.sdf")
+    esp_from_sdf.process_and_launch_esp(sdf_file="/Users/localadmin/Documents/molesp_test/notum.sdf")
+
 if __name__ == "__main__":
     main()

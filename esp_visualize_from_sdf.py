@@ -89,8 +89,8 @@ class ESPFromSDF:
             molecule=self.openff_molecule,
             conformer=self.openff_molecule.conformers[-1],
             radii=radii,
-            radii_scale=1.4,
-            spacing=0.2 * unit.angstrom,
+            radii_scale=1.2,
+            spacing=1.05 * unit.angstrom,
         )
         return vertices, indices
     
@@ -137,7 +137,7 @@ class ESPFromSDF:
         print(f'molblock is {molblock}')
         charge_request = module_version.handle_charge_request(
             conformer_mol=molblock,
-            charge_model='MBIS_WB_GAS_CHARGE_DIPOLE',
+            charge_model='MBIS_WB_WATER_CHARGE_DIPOLE',
             batched=False
         )
         print('charge request errors:')
