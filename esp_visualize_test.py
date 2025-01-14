@@ -11,10 +11,10 @@ def main():
     # esp_from_sdf.process_and_launch_esp(sdf_file="/Users/localadmin/Documents/molesp_test/structure_6_C24H23ClN4O4S2.sdf")
     # esp_from_sdf.process_and_launch_esp(sdf_file="/Users/localadmin/Documents/molesp_test/structure_7_C24H24ClN3O4S2.sdf")
     # esp_from_sdf.process_and_launch_esp(sdf_file="/Users/localadmin/Documents/molesp_test/structure_8_C23H23ClN4O5S3.sdf")
-    # esp_from_sdf.process_and_launch_esp(sdf_file="/Users/localadmin/Documents/molesp_test/Caffeine.sdf")
+    esp_from_sdf.process_and_launch_esp(sdf_file="/Users/localadmin/Documents/molesp_test/structure_8_C16H24N3O3S+.sdf")
     # esp_from_sdf.process_and_launch_esp(sdf_file="/Users/localadmin/Documents/molesp_test/Theophylline.sdf")
     # esp_from_sdf.process_and_launch_esp(sdf_file="/Users/localadmin/Documents/molesp_test/ku.a.003.02_ph4.sdf")
-    esp_from_sdf.process_and_launch_esp(sdf_file="/Users/localadmin/Documents/molesp_test/notum.sdf")
+    # esp_from_sdf.process_and_launch_esp(sdf_file="/Users/localadmin/Documents/molesp_test/phenol-3D-structure-CT1001494742.sdf")
 
 if __name__ == "__main__":
     main()

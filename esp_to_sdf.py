@@ -12,9 +12,11 @@ from ChargeAPI.API_infrastructure.charge_request import module_version
 import json
 from molesp.gui import launch
 from rdkit.Chem import rdDetermineBonds
+from rdkit.Chem import AllChem
 
 
-class ESPFromSDF:
+
+class ESPtoSDF:
     
     def __init__(self) -> None:
         """
@@ -190,11 +192,145 @@ class ESPFromSDF:
         vdw_radii = compute_vdw_radii(self.openff_molecule, radii_type=VdWRadiiType.Bondi) 
         radii = np.array([[r] for r in vdw_radii.m_as(unit.angstrom)]) * unit.angstrom
         return radii
+    
+    def add_dummy_atoms_to_molecule(self, rdkit_mol, dummy_coords, dummy_charges):
+            """
+            Adds dummy atoms (atomic number 0) with known charges and 3D coordinates 
+            to an existing RDKit molecule. Returns a new RDKit Mol object.
 
-    def process_and_launch_esp(self,
-                                  sdf_file: float,
-                                  port: int = 8000
-                                  ) -> None:
+            Parameters
+            ----------
+            rdkit_mol : rdkit.Chem.Mol
+                The starting molecule (already has some atoms).
+            dummy_coords : list of (float, float, float)
+                Coordinates for each new dummy atom.
+            dummy_charges : list of int
+                Formal charges for each new dummy atom.
+
+            Returns
+            -------
+            new_mol : rdkit.Chem.Mol
+                A new molecule containing the old atoms plus new dummy atoms.
+            """
+            print(f'length of dummy_coords is {len(dummy_coords)}')
+            print(f'length of dummy_charges is {len(dummy_charges)}')
+            if len(dummy_coords) != len(dummy_charges):
+                raise ValueError("dummy_coords and dummy_charges must have the same length")
+
+            # Convert to editable RWMol
+            rw_mol = Chem.RWMol(rdkit_mol)
+
+            # --- 1) Get the existing conformer (if any) ---
+            #     If there's no conformer, you may need to do something else (e.g. AllChem.EmbedMolecule).
+            if rdkit_mol.GetNumConformers() == 0:
+                raise ValueError("Input molecule has no conformers. Provide coordinates or embed first.")
+
+            old_conf = rdkit_mol.GetConformer(0)
+            n_old_atoms = rdkit_mol.GetNumAtoms()
+
+            # --- 2) Create a new conformer with enough room for old + new atoms ---
+            new_conf = Chem.Conformer(n_old_atoms + len(dummy_coords))
+
+            # Copy over the old coordinates
+            for i in range(n_old_atoms):
+                pos_i = old_conf.GetAtomPosition(i)
+                new_conf.SetAtomPosition(i, pos_i)
+
+            # --- 3) Add new dummy atoms ---
+            for i, (coords, chg) in enumerate(zip(dummy_coords, dummy_charges)):
+                atom = Chem.Atom("*")  # atomic number 0 => "Du" (dummy)
+                atom.SetDoubleProp('_TriposPartialCharge',int(chg.m[0]))
+                new_index = rw_mol.AddAtom(atom)
+                new_conf.SetAtomPosition(new_index, coords)
+
+            # --- 4) Replace the old conformer with the new one ---
+            # Remove the old conformers and add the new expanded one
+            while rw_mol.GetNumConformers():
+                rw_mol.RemoveConformer(0)
+            rw_mol.AddConformer(new_conf)
+
+            # Convert back to a normal Mol
+            new_mol = rw_mol.GetMol()
+            return new_mol
+
+    def write_pdb_with_charges(self, mol, partial_charges, filename):
+        """
+        Write a minimal PDB for `mol`, storing partial charges in the B-factor column.
+        The partial_charges list must match the number of atoms in `mol`.
+
+        Parameters
+        ----------
+        mol : rdkit.Chem.Mol
+            RDKit molecule with at least one conformer.
+        partial_charges : list of float
+            One partial charge per atom in the same order as mol.GetAtoms().
+        filename : str
+            Output PDB filename.
+        """
+        print(mol.GetNumAtoms())
+        print(len(partial_charges))
+        if mol.GetNumAtoms() != len(partial_charges):
+            raise ValueError("Number of partial charges must match the number of atoms.")
+        if mol.GetNumConformers() == 0:
+            raise ValueError("Molecule has no conformers (no 3D coordinates).")
+
+        conf = mol.GetConformer()
+        lines = []
+        atom_counter = 0
+
+        # For each atom, build a PDB "HETATM" line or "ATOM" line
+        for i, atom in enumerate(mol.GetAtoms()):
+            atom_counter += 1
+            symbol = atom.GetSymbol()
+            # If you need a unique atom name, pad/truncate to 4 chars. Just a simple example:
+            atom_name = f"{symbol}{i}".ljust(4)[:4]
+
+            # Retrieve partial charge
+            charge = partial_charges[i]
+            if isinstance(charge, unit.Quantity):
+                charge = charge.m[0]
+            # Coordinates
+            x, y, z = conf.GetAtomPosition(i).x, conf.GetAtomPosition(i).y, conf.GetAtomPosition(i).z
+
+            # Occupancy = 1.00, B-factor = partial charge (up to 2 decimals for clarity)
+            occupancy = 1.00
+            b_factor = charge
+
+            # Build the line (widths are fixed in the PDB format).
+            # Example format (fields):
+            # HETATM  atomNo  atomName  resName  chainID  resSeq   x       y       z    occupancy Bfactor
+            # Columns: 
+            #  1-6  Record name "HETATM" or "ATOM  "
+            #  7-11 Integer atom serial number
+            # 13-16 Atom name
+            # 17    Alternate location indicator (A, etc.)
+            # 18-20 Residue name
+            # 22    Chain ID
+            # 23-26 Residue sequence number
+            # 31-38 x
+            # 39-46 y
+            # 47-54 z
+            # 55-60 occupancy
+            # 61-66 tempFactor
+            # 77-78 element symbol
+            line = (
+                f"HETATM{atom_counter:5d} {atom_name:4s} UNL A   1    "  # residue name "UNL", chain 'A', resSeq=1
+                f"{x:8.3f}{y:8.3f}{z:8.3f}"
+                f"{occupancy:6.2f}{b_factor:6.2f}          "  # two fields of 6.2
+                f"{symbol:>2s}\n"
+            )
+            lines.append(line)
+
+        lines.append("END\n")
+
+        # Write to file
+        with open(filename, "w") as f:
+            f.writelines(lines)
+            
+    def make_charge_sdf(self,
+                        sdf_file: str,
+                        port: int = 8000
+                        ) -> None:
         """
         Produce QM ESP using the supplied ESPSettings, Molecule, Conformer
         Paramters
@@ -204,6 +340,12 @@ class ESPFromSDF:
         
         port: int
             port in which the local host will be launched
+            
+        Return
+        ------
+        
+        
+        
         """
         self.openff_molecule = self._sdf_to_openff(sdf_file=sdf_file)
         # Validate counts
@@ -219,25 +361,44 @@ class ESPFromSDF:
 
         assert num_atoms == num_charges == num_coords, "Mismatch in atom counts, charges, or coordinates."
 
+        print('computing radii')
         radii = self._compute_vdw_radii()
-
+        print('radii computed')
+        print('computing surface')
         vertices, indices = self._compute_surface(radii)
+        
+        rdkit_mol = self.openff_molecule.to_rdkit()
+        
 
         self.vertices = vertices
         self.indices = indices
         self.grid = vertices * unit.angstrom
         esp = self._generate_on_atom_esp(charge_list=charges)
-
-
-
-        #create esp molecule object for visualization
-        esp_molecule = self._create_esp_molecule(esp)
-        self.esp_molecule = esp_molecule
         
-        launch(esp_molecule, port)
+        n_real = rdkit_mol.GetNumAtoms()  # original atoms
+        n_dummy = len(vertices)
+        partial_charges_full = [0.0] * n_real + [0.0] * n_dummy
 
-        return esp, self.grid, self.esp_molecule
-    # def _compute_esp_models(self, openff_molecule: Molecule) -> list[float]:
-       
-    #     ...
+        # Now fill in the last part with the actual dummy-atom charges:
+        for i in range(n_dummy):
+            partial_charges_full[n_real + i] = esp[i]
+            
+        print('esp generated')
+        print(esp)        
+        print('creating esp molecule with dummy atoms')
+        dummy_mol = self.add_dummy_atoms_to_molecule(
+            rdkit_mol=rdkit_mol,
+            dummy_coords=vertices,
+            dummy_charges=esp
+        )
+        self.write_pdb_with_charges(
+            mol=dummy_mol,
+            partial_charges=partial_charges_full,
+            filename=f"{sdf_file.strip('.sdf')}_cloud.pdb",
+        )
+            
+
+        # print('writing file')
+        # rdmolfiles.MolToMolFile(new_mol, f"{sdf_file.strip('.sdf')}_cloud.mol")
+
 
