@@ -1,0 +1,17 @@
+This tool allows the user to buld ESPs either from precomputed QM calcs or a machine learning charge model. 
+
+Installation
+==============
+
+1. Create a conda environment with the required packages with the ENV.yml available
+`conda create -n molesp --file ENV.yml`
+
+2. Activate this environment. Now in a separate directory, clone the molesp repo
+`git clone git@github.com:SimonBoothroyd/molesp.git`
+
+3. Install the gui in molesp by entering the molesp directory and running
+`python setup.py build_gui`
+then
+`python setup.py install`
+
+4. This 
