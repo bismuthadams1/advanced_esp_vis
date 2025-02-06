@@ -134,7 +134,7 @@ class ESPFromSDF:
         # Chem.SanitizeMol(molecule)
         molblock = rdmolfiles.MolToMolBlock(molecule)
         
-        print(f'molblock is {molblock}')
+        # print(f'molblock is {molblock}')
         charge_request = module_version.handle_charge_request(
             conformer_mol=molblock,
             charge_model='MBIS_WB_GAS_ESP_DEFAULT',
@@ -205,35 +205,44 @@ class ESPFromSDF:
         port: int
             port in which the local host will be launched
         """
+        print('sdf to openff')
         self.openff_molecule = self._sdf_to_openff(sdf_file=sdf_file)
         # Validate counts
+        print('compute charge models')
         charges = self._compute_charge_models(sdf_file=sdf_file)
         
         num_atoms = self.openff_molecule.n_atoms
         num_charges = len(charges)
         num_coords = len(self.openff_molecule.conformers[-1])
 
-        print(f"Number of atoms: {num_atoms}")
-        print(f"Number of charges: {num_charges}")
-        print(f"Number of coordinates: {num_coords}")
+        # print(f"Number of atoms: {num_atoms}")
+        # print(f"Number of charges: {num_charges}")
+        # print(f"Number of coordinates: {num_coords}")
 
         assert num_atoms == num_charges == num_coords, "Mismatch in atom counts, charges, or coordinates."
 
+        print('compute vdw radii')
+
         radii = self._compute_vdw_radii()
+        
+        print('compute surface')
 
         vertices, indices = self._compute_surface(radii)
 
         self.vertices = vertices
         self.indices = indices
         self.grid = vertices * unit.angstrom
+        print('generate on atom esp')
         esp = self._generate_on_atom_esp(charge_list=charges)
 
 
+        print('create esp molecule')
 
         #create esp molecule object for visualization
         esp_molecule = self._create_esp_molecule(esp)
         self.esp_molecule = esp_molecule
-        
+        print('launch')
+
         launch(esp_molecule, port)
 
         return esp, self.grid, self.esp_molecule

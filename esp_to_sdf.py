@@ -365,35 +365,35 @@ class ESPtoSDF:
         radii = self._compute_vdw_radii()
         print('radii computed')
         print('computing surface')
-        vertices, indices = self._compute_surface(radii)
+        # vertices, indices = self._compute_surface(radii)
         
         rdkit_mol = self.openff_molecule.to_rdkit()
         
 
-        self.vertices = vertices
-        self.indices = indices
-        self.grid = vertices * unit.angstrom
-        esp = self._generate_on_atom_esp(charge_list=charges)
+        # self.vertices = vertices
+        # self.indices = indices
+        # self.grid = vertices * unit.angstrom
+        # esp = self._generate_on_atom_esp(charge_list=charges)
         
-        n_real = rdkit_mol.GetNumAtoms()  # original atoms
-        n_dummy = len(vertices)
-        partial_charges_full = [0.0] * n_real + [0.0] * n_dummy
+        # n_real = rdkit_mol.GetNumAtoms()  # original atoms
+        # n_dummy = len(vertices)
+        # partial_charges_full = [0.0] * n_real + [0.0] * n_dummy
 
-        # Now fill in the last part with the actual dummy-atom charges:
-        for i in range(n_dummy):
-            partial_charges_full[n_real + i] = esp[i]
+        # # Now fill in the last part with the actual dummy-atom charges:
+        # for i in range(n_dummy):
+        #     partial_charges_full[n_real + i] = esp[i]
             
-        print('esp generated')
-        print(esp)        
-        print('creating esp molecule with dummy atoms')
-        dummy_mol = self.add_dummy_atoms_to_molecule(
-            rdkit_mol=rdkit_mol,
-            dummy_coords=vertices,
-            dummy_charges=esp
-        )
+        # print('esp generated')
+        # print(esp)        
+        # print('creating esp molecule with dummy atoms')
+        # dummy_mol = self.add_dummy_atoms_to_molecule(
+        #     rdkit_mol=rdkit_mol,
+        #     dummy_coords=vertices,
+        #     dummy_charges=esp
+        # )
         self.write_pdb_with_charges(
-            mol=dummy_mol,
-            partial_charges=partial_charges_full,
+            mol=rdkit_mol,
+            partial_charges=charges,
             filename=f"{sdf_file.strip('.sdf')}_cloud.pdb",
         )
             
