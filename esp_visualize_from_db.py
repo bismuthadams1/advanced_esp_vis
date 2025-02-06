@@ -43,9 +43,6 @@ Smiles list in prop store:
 MOLECULE_STR = 'COCCOc1cnc(NS(=O)(=O)c2ccccc2)nc1'
 CONFORMER = 0
 #load the prop_store so we can 
-# prop_store = MoleculePropStore("properties_store.db")
-# prop_store_path = "/Users/localadmin/Documents/projects/Comparison_with_QM/RinnickerTest/ESP_check/properties_store.db"
-# prop_store_2 = MoleculePropStore("/Users/localadmin/Desktop/properties_store.db")
 prop_store_path = "/Users/localadmin/Documents/molesp_test/ESP_rebuilt.db"
 prop_store_2 = MoleculePropStore(prop_store_path)
 print(prop_store_2.list())

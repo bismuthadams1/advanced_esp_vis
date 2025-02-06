@@ -215,10 +215,6 @@ class ESPFromSDF:
         num_charges = len(charges)
         num_coords = len(self.openff_molecule.conformers[-1])
 
-        # print(f"Number of atoms: {num_atoms}")
-        # print(f"Number of charges: {num_charges}")
-        # print(f"Number of coordinates: {num_coords}")
-
         assert num_atoms == num_charges == num_coords, "Mismatch in atom counts, charges, or coordinates."
 
         print('compute vdw radii')
@@ -246,7 +242,3 @@ class ESPFromSDF:
         launch(esp_molecule, port)
 
         return esp, self.grid, self.esp_molecule
-    # def _compute_esp_models(self, openff_molecule: Molecule) -> list[float]:
-       
-    #     ...
-

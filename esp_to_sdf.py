@@ -14,8 +14,6 @@ from molesp.gui import launch
 from rdkit.Chem import rdDetermineBonds
 from rdkit.Chem import AllChem
 
-
-
 class ESPtoSDF:
     
     def __init__(self) -> None:
@@ -194,64 +192,63 @@ class ESPtoSDF:
         return radii
     
     def add_dummy_atoms_to_molecule(self, rdkit_mol, dummy_coords, dummy_charges):
-            """
-            Adds dummy atoms (atomic number 0) with known charges and 3D coordinates 
-            to an existing RDKit molecule. Returns a new RDKit Mol object.
+        """
+        Adds dummy atoms (atomic number 0) with known charges and 3D coordinates 
+        to an existing RDKit molecule. Returns a new RDKit Mol object.
 
-            Parameters
-            ----------
-            rdkit_mol : rdkit.Chem.Mol
-                The starting molecule (already has some atoms).
-            dummy_coords : list of (float, float, float)
-                Coordinates for each new dummy atom.
-            dummy_charges : list of int
-                Formal charges for each new dummy atom.
+        Parameters
+        ----------
+        rdkit_mol : rdkit.Chem.Mol
+            The starting molecule (already has some atoms).
+        dummy_coords : list of (float, float, float)
+            Coordinates for each new dummy atom.
+        dummy_charges : list of int
+            Formal charges for each new dummy atom.
 
-            Returns
-            -------
-            new_mol : rdkit.Chem.Mol
-                A new molecule containing the old atoms plus new dummy atoms.
-            """
-            print(f'length of dummy_coords is {len(dummy_coords)}')
-            print(f'length of dummy_charges is {len(dummy_charges)}')
-            if len(dummy_coords) != len(dummy_charges):
-                raise ValueError("dummy_coords and dummy_charges must have the same length")
+        Returns
+        -------
+        new_mol : rdkit.Chem.Mol
+            A new molecule containing the old atoms plus new dummy atoms.
+        """
+        print(f'length of dummy_coords is {len(dummy_coords)}')
+        print(f'length of dummy_charges is {len(dummy_charges)}')
+        if len(dummy_coords) != len(dummy_charges):
+            raise ValueError("dummy_coords and dummy_charges must have the same length")
 
-            # Convert to editable RWMol
-            rw_mol = Chem.RWMol(rdkit_mol)
+        # Convert to editable RWMol
+        rw_mol = Chem.RWMol(rdkit_mol)
 
-            # --- 1) Get the existing conformer (if any) ---
-            #     If there's no conformer, you may need to do something else (e.g. AllChem.EmbedMolecule).
-            if rdkit_mol.GetNumConformers() == 0:
-                raise ValueError("Input molecule has no conformers. Provide coordinates or embed first.")
+        # --- 1) Get the existing conformer (if any) ---
+        if rdkit_mol.GetNumConformers() == 0:
+            raise ValueError("Input molecule has no conformers. Provide coordinates or embed first.")
 
-            old_conf = rdkit_mol.GetConformer(0)
-            n_old_atoms = rdkit_mol.GetNumAtoms()
+        old_conf = rdkit_mol.GetConformer(0)
+        n_old_atoms = rdkit_mol.GetNumAtoms()
 
-            # --- 2) Create a new conformer with enough room for old + new atoms ---
-            new_conf = Chem.Conformer(n_old_atoms + len(dummy_coords))
+        # --- 2) Create a new conformer with enough room for old + new atoms ---
+        new_conf = Chem.Conformer(n_old_atoms + len(dummy_coords))
 
-            # Copy over the old coordinates
-            for i in range(n_old_atoms):
-                pos_i = old_conf.GetAtomPosition(i)
-                new_conf.SetAtomPosition(i, pos_i)
+        # Copy over the old coordinates
+        for i in range(n_old_atoms):
+            pos_i = old_conf.GetAtomPosition(i)
+            new_conf.SetAtomPosition(i, pos_i)
 
-            # --- 3) Add new dummy atoms ---
-            for i, (coords, chg) in enumerate(zip(dummy_coords, dummy_charges)):
-                atom = Chem.Atom("*")  # atomic number 0 => "Du" (dummy)
-                atom.SetDoubleProp('_TriposPartialCharge',int(chg.m[0]))
-                new_index = rw_mol.AddAtom(atom)
-                new_conf.SetAtomPosition(new_index, coords)
+        # --- 3) Add new dummy atoms ---
+        for i, (coords, chg) in enumerate(zip(dummy_coords, dummy_charges)):
+            atom = Chem.Atom("*")  # atomic number 0 => "Du" (dummy)
+            atom.SetDoubleProp('_TriposPartialCharge',int(chg.m[0]))
+            new_index = rw_mol.AddAtom(atom)
+            new_conf.SetAtomPosition(new_index, coords)
 
-            # --- 4) Replace the old conformer with the new one ---
-            # Remove the old conformers and add the new expanded one
-            while rw_mol.GetNumConformers():
-                rw_mol.RemoveConformer(0)
-            rw_mol.AddConformer(new_conf)
+        # --- 4) Replace the old conformer with the new one ---
+        # Remove the old conformers and add the new expanded one
+        while rw_mol.GetNumConformers():
+            rw_mol.RemoveConformer(0)
+        rw_mol.AddConformer(new_conf)
 
-            # Convert back to a normal Mol
-            new_mol = rw_mol.GetMol()
-            return new_mol
+        # Convert back to a normal Mol
+        new_mol = rw_mol.GetMol()
+        return new_mol
 
     def write_pdb_with_charges(self, mol, partial_charges, filename):
         """
