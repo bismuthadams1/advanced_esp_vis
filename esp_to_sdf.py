@@ -294,22 +294,6 @@ class ESPtoSDF:
             b_factor = charge
 
             # Build the line (widths are fixed in the PDB format).
-            # Example format (fields):
-            # HETATM  atomNo  atomName  resName  chainID  resSeq   x       y       z    occupancy Bfactor
-            # Columns: 
-            #  1-6  Record name "HETATM" or "ATOM  "
-            #  7-11 Integer atom serial number
-            # 13-16 Atom name
-            # 17    Alternate location indicator (A, etc.)
-            # 18-20 Residue name
-            # 22    Chain ID
-            # 23-26 Residue sequence number
-            # 31-38 x
-            # 39-46 y
-            # 47-54 z
-            # 55-60 occupancy
-            # 61-66 tempFactor
-            # 77-78 element symbol
             line = (
                 f"HETATM{atom_counter:5d} {atom_name:4s} UNL A   1    "  # residue name "UNL", chain 'A', resSeq=1
                 f"{x:8.3f}{y:8.3f}{z:8.3f}"
@@ -366,36 +350,9 @@ class ESPtoSDF:
         
         rdkit_mol = self.openff_molecule.to_rdkit()
         
-
-        # self.vertices = vertices
-        # self.indices = indices
-        # self.grid = vertices * unit.angstrom
-        # esp = self._generate_on_atom_esp(charge_list=charges)
-        
-        # n_real = rdkit_mol.GetNumAtoms()  # original atoms
-        # n_dummy = len(vertices)
-        # partial_charges_full = [0.0] * n_real + [0.0] * n_dummy
-
-        # # Now fill in the last part with the actual dummy-atom charges:
-        # for i in range(n_dummy):
-        #     partial_charges_full[n_real + i] = esp[i]
-            
-        # print('esp generated')
-        # print(esp)        
-        # print('creating esp molecule with dummy atoms')
-        # dummy_mol = self.add_dummy_atoms_to_molecule(
-        #     rdkit_mol=rdkit_mol,
-        #     dummy_coords=vertices,
-        #     dummy_charges=esp
-        # )
         self.write_pdb_with_charges(
             mol=rdkit_mol,
             partial_charges=charges,
             filename=f"{sdf_file.strip('.sdf')}_cloud.pdb",
         )
             
-
-        # print('writing file')
-        # rdmolfiles.MolToMolFile(new_mol, f"{sdf_file.strip('.sdf')}_cloud.mol")
-
-

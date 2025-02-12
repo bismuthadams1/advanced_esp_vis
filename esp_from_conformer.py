@@ -317,15 +317,6 @@ class ESPProcessor:
                                 database=self._prop_store,
                                 grid_coords=self.vertices)
 
-        # esp_molecule = ESPMolecule(
-        #     atomic_numbers=[atom.atomic_number for atom in self.openff_molecule.atoms],
-        #     conformer=self.conformer.conformer.flatten().tolist(),
-        #     surface=Surface(
-        #         vertices=self.vertices.flatten().tolist(),
-        #         indices=self.indices.flatten().tolist(),
-        #     ),
-        #     esp={"QC ESP": np.round(esp,7).m_as(unit.hartree / unit.e).flatten().tolist()},
-        # )
         self.esp_molecule.esp['riniker'] = np.round(esp,6).m_as(unit.hartree / unit.e).flatten().tolist()
         if self.display_difference:
             self._process_difference()

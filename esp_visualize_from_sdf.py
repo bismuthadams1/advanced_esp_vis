@@ -130,7 +130,6 @@ class ESPFromSDF:
         supplier = Chem.SDMolSupplier(sdf_file, removeHs=False) #, sanitize=False
         molecules = [mol for mol in supplier if mol is not None]
         molecule = molecules[0]
-        # rdDetermineBonds.DetermineConnectivity(molecule)
         # Chem.SanitizeMol(molecule)
         molblock = rdmolfiles.MolToMolBlock(molecule)
         
@@ -179,7 +178,7 @@ class ESPFromSDF:
 
     def _compute_vdw_radii(self) -> np.ndarray:
         """
-            compute the VdW radii  
+        compute the VdW radii  
         Parameters
         ----------
    

@@ -27,7 +27,6 @@ import numpy as np
 
 HA_TO_KCAL_P_MOL = 627.509391  # Hartrees to kilocalories per mole
 
-
 AU_ESP = unit.atomic_unit_of_energy / unit.elementary_charge
 
 OPEN_FF_AVAILABLE_CHARGE_MODELS = ['zeros','formal_charge','espaloma-am1bcc']
