@@ -8,11 +8,14 @@ from rdkit.Chem import rdmolfiles
 import numpy as np
 from point_charge_esp import calculate_esp
 from openff.recharge.utilities.toolkits import VdWRadiiType, compute_vdw_radii
+from openff.recharge.grids import MSKGridSettings, GridGenerator
 from ChargeAPI.API_infrastructure.charge_request import module_version
+from construction_of_grid import generate
 import json
 from molesp.gui import launch
 from rdkit.Chem import rdDetermineBonds
 from rdkit.Chem import AllChem
+import time
 
 class ESPtoSDF:
     
@@ -236,9 +239,9 @@ class ESPtoSDF:
         # --- 3) Add new dummy atoms ---
         for i, (coords, chg) in enumerate(zip(dummy_coords, dummy_charges)):
             atom = Chem.Atom("*")  # atomic number 0 => "Du" (dummy)
-            atom.SetDoubleProp('_TriposPartialCharge',int(chg.m[0]))
+            atom.SetDoubleProp('_TriposPartialCharge',float(chg[0].m))
             new_index = rw_mol.AddAtom(atom)
-            new_conf.SetAtomPosition(new_index, coords)
+            new_conf.SetAtomPosition(new_index, coords.m)
 
         # --- 4) Replace the old conformer with the new one ---
         # Remove the old conformers and add the new expanded one
@@ -271,19 +274,37 @@ class ESPtoSDF:
         if mol.GetNumConformers() == 0:
             raise ValueError("Molecule has no conformers (no 3D coordinates).")
 
-        conf = mol.GetConformer()
         lines = []
         atom_counter = 0
+        
+        # radii = self._compute_vdw_radii()
+        # vertices, indices = self._compute_surface(radii)
+        msk =  MSKGridSettings()
+        start_time = time.time()
+        grid = generate(molecule=self.openff_molecule, conformer=self.openff_molecule.conformers[-1], settings=msk)
+        end_time = time.time()
+        print(f"Grid generation took {end_time - start_time:.2f} seconds")
+        self.grid =grid
+        print('grid computed', self.grid)
+        esp_charges = self._generate_on_atom_esp(partial_charges, self.openff_molecule.conformers[-1])
+        rdkit_mol = self.add_dummy_atoms_to_molecule(
+            mol,
+            dummy_coords=self.grid,
+            dummy_charges=esp_charges
+        )
+
+        conf = rdkit_mol.GetConformer()
 
         # For each atom, build a PDB "HETATM" line or "ATOM" line
-        for i, atom in enumerate(mol.GetAtoms()):
+        print('build pdb with dummy atoms')
+        for i, atom in enumerate(rdkit_mol.GetAtoms()):
             atom_counter += 1
             symbol = atom.GetSymbol()
             # If you need a unique atom name, pad/truncate to 4 chars. Just a simple example:
             atom_name = f"{symbol}{i}".ljust(4)[:4]
 
             # Retrieve partial charge
-            charge = partial_charges[i]
+            charge = esp_charges[i]
             if isinstance(charge, unit.Quantity):
                 charge = charge.m[0]
             # Coordinates
@@ -335,6 +356,8 @@ class ESPtoSDF:
         num_atoms = self.openff_molecule.n_atoms
         num_charges = len(charges)
         num_coords = len(self.openff_molecule.conformers[-1])
+        
+        
 
         print(f"Number of atoms: {num_atoms}")
         print(f"Number of charges: {num_charges}")
@@ -343,10 +366,8 @@ class ESPtoSDF:
         assert num_atoms == num_charges == num_coords, "Mismatch in atom counts, charges, or coordinates."
 
         print('computing radii')
-        radii = self._compute_vdw_radii()
         print('radii computed')
         print('computing surface')
-        # vertices, indices = self._compute_surface(radii)
         
         rdkit_mol = self.openff_molecule.to_rdkit()
         

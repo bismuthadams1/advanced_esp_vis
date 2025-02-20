@@ -172,8 +172,9 @@ class ESPFromSDF:
                 vertices=self.vertices.flatten().tolist(),
                 indices=self.indices.flatten().tolist(),
             ),
-            esp={"Charge_model ESP": np.round(esp,7).m_as(unit.hartree / unit.e).flatten().tolist()},
+            esp={"Charge_model ESP": np.round(esp,5).m_as(unit.hartree / unit.e).flatten().tolist()},
         )
+
         return esp_molecule
 
     def _compute_vdw_radii(self) -> np.ndarray:
