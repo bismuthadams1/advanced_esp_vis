@@ -285,7 +285,7 @@ class ESPtoSDF:
         end_time = time.time()
         print(f"Grid generation took {end_time - start_time:.2f} seconds")
         self.grid =grid
-        print('grid computed', self.grid)
+        # print('grid computed', self.grid)
         esp_charges = self._generate_on_atom_esp(partial_charges, self.openff_molecule.conformers[-1])
         rdkit_mol = self.add_dummy_atoms_to_molecule(
             mol,
