@@ -123,16 +123,26 @@ class ESPFromSDF:
 
         return on_atom_esp
     
-    def _compute_charge_models(self, sdf_file: str) -> list[float]:
+    def _compute_charge_models(
+        self,
+        sdf_file: str,
+        pdb: bool) -> list[float]:
         """Compute partial charges for openff molecule
         
         """
-        supplier = Chem.SDMolSupplier(sdf_file, removeHs=False) #, sanitize=False
-        molecules = [mol for mol in supplier if mol is not None]
-        molecule = molecules[0]
-        # Chem.SanitizeMol(molecule)
-        molblock = rdmolfiles.MolToMolBlock(molecule)
-        
+        if pdb:
+            with open(sdf_file, "r") as file:
+                pdb_block = file.read()
+                rdmol = Chem.MolFromPDBBlock(pdb_block, removeHs = False)
+            molblock = rdmolfiles.MolToMolBlock(rdmol)
+
+        else:
+            supplier = Chem.SDMolSupplier(sdf_file, removeHs=False) #, sanitize=False
+            molecules = [mol for mol in supplier if mol is not None]
+            molecule = molecules[0]
+            # Chem.SanitizeMol(molecule)
+            molblock = rdmolfiles.MolToMolBlock(molecule)
+            
         # print(f'molblock is {molblock}')
         charge_request = module_version.handle_charge_request(
             conformer_mol=molblock,
@@ -191,9 +201,26 @@ class ESPFromSDF:
         radii = np.array([[r] for r in vdw_radii.m_as(unit.angstrom)]) * unit.angstrom
         return radii
 
+    def _pdb_to_openff(sdf_file = sdf_file):
+        """
+        
+        """
+        
+        with open(sdf_file, "r") as file:
+            pdb_block = file.read()
+            rdmol = Chem.MolFromPDBBlock(pdb_block, removeHs = False)
+        openff_mol = Molecule.from_rdkit(
+            rdmol,
+            allow_undefined_stereo=True,
+            hydrogens_are_explicit=True
+        )
+        
+        return openff_mol
+
     def process_and_launch_esp(self,
                                   sdf_file: float,
-                                  port: int = 8000
+                                  port: int = 8000,
+                                  pdb: bool = False
                                   ) -> None:
         """
         Produce QM ESP using the supplied ESPSettings, Molecule, Conformer
@@ -205,11 +232,17 @@ class ESPFromSDF:
         port: int
             port in which the local host will be launched
         """
-        print('sdf to openff')
-        self.openff_molecule = self._sdf_to_openff(sdf_file=sdf_file)
+        if pdb:
+            self.openff_molecule = self._pdb_to_openff(sdf_file=sdf_file)
+        else:
+            print('sdf to openff')
+            self.openff_molecule = self._sdf_to_openff(sdf_file=sdf_file)
         # Validate counts
         print('compute charge models')
-        charges = self._compute_charge_models(sdf_file=sdf_file)
+        charges = self._compute_charge_models(
+            sdf_file=sdf_file,
+            pdb = pdb
+        )
         
         num_atoms = self.openff_molecule.n_atoms
         num_charges = len(charges)

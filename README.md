@@ -30,7 +30,7 @@ First clone this repo
 
 then install a key dependecy with 
 
-`pip install git+https://github.com/SimonBoothroyd/nagl.git@main`
+`pip install git+https://github.com/bismuthadams1/nagl.git`
 
 finally, in the nagl-mbis repo run
 
