@@ -12,6 +12,8 @@ from ChargeAPI.API_infrastructure.charge_request import module_version
 import json
 from molesp.gui import launch
 from rdkit.Chem import rdDetermineBonds
+from rdkit.Geometry import Point3D
+
 
 
 class ESPFromSDF:
@@ -45,7 +47,10 @@ class ESPFromSDF:
         # Read the molecule using RDKit
         supplier = Chem.SDMolSupplier(sdf_file, removeHs=False)
         rdkit_molecules = [mol for mol in supplier if mol is not None]
+        
         rdkit_molecule = rdkit_molecules[0]
+        self._shift_molecule(rdkit_molecule)
+
         self.rdkit_molecule = rdkit_molecule  # Store RDKit molecule
         print(f"Number of atoms in RDKit molecule: {rdkit_molecule.GetNumAtoms()}")
 
@@ -68,6 +73,16 @@ class ESPFromSDF:
 
         return openff_molecule
 
+    def _shift_molecule(self, mol):
+        ligand_conf = mol.GetConformer()
+        ligand_coords = np.array(ligand_conf.GetPositions())
+        centroid = np.mean(ligand_coords, axis=0)
+
+        for i in range(ligand_conf.GetNumAtoms()):
+            pos = ligand_conf.GetAtomPosition(i)
+            new_pos = Point3D(pos.x - centroid[0], pos.y - centroid[1], pos.z - centroid[2])
+            ligand_conf.SetAtomPosition(i, new_pos)
+
     def _compute_surface(self, 
                          radii: np.ndarray) -> tuple[np.ndarray,np.ndarray]:
         """"
@@ -89,8 +104,8 @@ class ESPFromSDF:
             molecule=self.openff_molecule,
             conformer=self.openff_molecule.conformers[-1],
             radii=radii,
-            radii_scale=1.1,
-            spacing=0.2 * unit.angstrom,
+            radii_scale=1.2,
+            spacing=0.75 * unit.angstrom,
         )
         return vertices, indices
     
@@ -144,11 +159,20 @@ class ESPFromSDF:
             molblock = rdmolfiles.MolToMolBlock(molecule)
             
         # print(f'molblock is {molblock}')
-        charge_request = module_version.handle_charge_request(
-            conformer_mol=molblock,
-            charge_model='MBIS_WB_GAS_ESP_DEFAULT',
-            batched=False
-        )
+        if pdb:
+            charge_request = module_version.handle_charge_request(
+                    conformer_mol=pdb_block,
+                    charge_model='MBIS_WB_GAS_ESP_DEFAULT',
+                    batched=False,
+                    protein=True
+                )
+            
+        else:
+            charge_request = module_version.handle_charge_request(
+                conformer_mol=molblock,
+                charge_model='MBIS_WB_GAS_ESP_DEFAULT',
+                batched=False
+            )
         print('charge request errors:')
         print(charge_request['error'])
         charges = json.loads(charge_request['charge_result'])
@@ -201,14 +225,18 @@ class ESPFromSDF:
         radii = np.array([[r] for r in vdw_radii.m_as(unit.angstrom)]) * unit.angstrom
         return radii
 
-    def _pdb_to_openff(sdf_file = sdf_file):
-        """
+    def _pdb_to_openff(
+        self,
+        sdf_file: str):
+        """Convert a pdb to an openff molecule
         
         """
         
         with open(sdf_file, "r") as file:
             pdb_block = file.read()
             rdmol = Chem.MolFromPDBBlock(pdb_block, removeHs = False)
+            self._shift_molecule(rdmol)
+            
         openff_mol = Molecule.from_rdkit(
             rdmol,
             allow_undefined_stereo=True,
@@ -217,11 +245,12 @@ class ESPFromSDF:
         
         return openff_mol
 
-    def process_and_launch_esp(self,
-                                  sdf_file: float,
-                                  port: int = 8000,
-                                  pdb: bool = False
-                                  ) -> None:
+    def process_and_launch_esp(
+        self,
+        sdf_file: float,
+        port: int = 8000,
+        pdb: bool = False
+        ) -> None:
         """
         Produce QM ESP using the supplied ESPSettings, Molecule, Conformer
         Paramters
@@ -263,7 +292,6 @@ class ESPFromSDF:
         self.grid = vertices * unit.angstrom
         print('generate on atom esp')
         esp = self._generate_on_atom_esp(charge_list=charges)
-
 
         print('create esp molecule')
 
