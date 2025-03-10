@@ -141,7 +141,8 @@ class ESPFromSDF:
     def _compute_charge_models(
         self,
         sdf_file: str,
-        pdb: bool) -> list[float]:
+        pdb: bool,
+        charge_model: str) -> list[float]:
         """Compute partial charges for openff molecule
         
         """
@@ -162,15 +163,15 @@ class ESPFromSDF:
         if pdb:
             charge_request = module_version.handle_charge_request(
                     conformer_mol=pdb_block,
-                    charge_model='MBIS_WB_GAS_ESP_DEFAULT',
+                    charge_model=charge_model,
                     batched=False,
-                    protein=True
+                    protein=True,
                 )
             
         else:
             charge_request = module_version.handle_charge_request(
                 conformer_mol=molblock,
-                charge_model='MBIS_WB_GAS_ESP_DEFAULT',
+                charge_model=charge_model,
                 batched=False
             )
         print('charge request errors:')
@@ -249,7 +250,8 @@ class ESPFromSDF:
         self,
         sdf_file: float,
         port: int = 8000,
-        pdb: bool = False
+        pdb: bool = False,
+        charge_model: str = 'MBIS_WB_GAS_ESP_DEFAULT'
         ) -> None:
         """
         Produce QM ESP using the supplied ESPSettings, Molecule, Conformer
@@ -270,7 +272,8 @@ class ESPFromSDF:
         print('compute charge models')
         charges = self._compute_charge_models(
             sdf_file=sdf_file,
-            pdb = pdb
+            pdb = pdb,
+            charge_model = charge_model,
         )
         
         num_atoms = self.openff_molecule.n_atoms
