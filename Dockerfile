@@ -1,6 +1,5 @@
 FROM condaforge/mambaforge
 
-WORKDIR /project
 USER root
 
 COPY ENV.yml .
@@ -8,6 +7,7 @@ COPY ENV.yml .
 RUN apt-get update && apt-get install -y build-essential
 
 RUN mamba env create -n esp_vis --file ENV.yml && \
+    mamba run -n esp_vis pip install -e . && \
     mamba clean --all --yes && \
     mamba init 
 
@@ -35,7 +35,7 @@ RUN git clone https://github.com/bismuthadams1/nagl-mbis.git && \
 # (Optional) If you want to install Riniker, uncomment the following:
 # RUN  mamba deactivate && \
 #     git clone https://github.com/kuano-ai/Forked_Riniker.git && \
-#     cd Forked_Riniker && \
+#     cd Forked_Riniker && \s
 #     conda env create -n riniker --file riniker.yml && \
 #     pip install -e .
 
@@ -43,5 +43,3 @@ SHELL ["conda", "run", "-n", "esp_vis", "/bin/bash", "-c"]
 
 EXPOSE 8000
 
-# Set the default command to run your ESP visualizer (adjust the script name/args as needed)
-CMD ["python", "esp_visualize_esp.py"]
