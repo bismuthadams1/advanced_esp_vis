@@ -2,11 +2,11 @@ FROM condaforge/mambaforge
 
 USER root
 
-COPY ENV.yml .
-
 RUN apt-get update && apt-get install -y build-essential
 
-RUN mamba env create -n esp_vis --file ENV.yml && \
+RUN git clone https://github.com/bismuthadams1/advanced_esp_vis &&\
+    cd advanced_esp_vis && \
+    mamba env create -n esp_vis --file ENV.yml && \
     mamba run -n esp_vis pip install -e . && \
     mamba clean --all --yes && \
     mamba init 
@@ -43,3 +43,4 @@ SHELL ["conda", "run", "-n", "esp_vis", "/bin/bash", "-c"]
 
 EXPOSE 8000
 
+CMD ["/bin/bash"]
